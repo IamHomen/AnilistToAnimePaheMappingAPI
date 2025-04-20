@@ -1,5 +1,22 @@
 {
-    "type": "module",
+  "name": "homen-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "api.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "manga",
+    "reading",
+    "discovery",
+    "api",
+    "homenapi"
+  ],
+  "author": "https://github.com/IamHomen",
+  "license": "MIT",
+  "type": "module",
     "dependencies": {
       "axios": "^1.4.0",
       "cheerio": "^1.0.0-rc.12",
