@@ -1,21 +1,25 @@
 import * as cheerio from "cheerio";
+import express from 'express';
 import { getAniListTitle } from '../utils/anilist.js';
 import { searchAnimePahe, getEpisodeList, getEpisodeSources } from '../utils/animepahe.js';
-import express from 'express';
 
 const router = express.Router();
 
-// Endpoint to get episodes
+// Endpoint to get episodes (with pagination)
 router.get("/:anilistId", async (req, res) => {
   try {
     const anilistId = parseInt(req.params.anilistId);
+    const page = parseInt(req.query.page || "1");
+
     const title = await getAniListTitle(anilistId);
     const results = await searchAnimePahe(title);
 
-    if (!results.length) return res.status(404).json({ error: "Anime not found on AnimePahe" });
+    if (!results.length) {
+      return res.status(404).json({ error: "Anime not found on AnimePahe" });
+    }
 
     const match = results.find(a => a.title.toLowerCase() === title.toLowerCase()) || results[0];
-    const episodes = await getEpisodeList(match.session);
+    const episodes = await getEpisodeList(match.session, page);
 
     res.json({
       anilistId,
@@ -23,6 +27,7 @@ router.get("/:anilistId", async (req, res) => {
       animepaheId: match.id,
       animepaheTitle: match.title,
       animepaheSession: match.session,
+      page,
       episodes
     });
   } catch (err) {
@@ -43,4 +48,4 @@ router.get("/sources/:animeSession/:session", async (req, res) => {
   }
 });
 
-export default router;  // Use export default for ES modules
+export default router;

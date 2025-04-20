@@ -20,21 +20,21 @@ export async function searchAnimePahe(title) {
 }
 
 // Get episode list from AnimePahe using session
-export async function getEpisodeList(animeSession, page) {
+export async function getEpisodeList(animeSession, page = 1) {
     const res = await axios.get(`${ANIMEPAHE_BASE_URL}/api?m=release&id=${animeSession}&sort=episode_asc&page=${page}`, {
-        headers: {
-            "User-Agent": USER_AGENT,
-            "Referer": ANIMEPAHE_BASE_URL,
-            "Accept-Language": "en-US,en;q=0.9",
-            "Cookie": "__ddg2_=; res=1080; aud=jpn;"
-        }
+      headers: {
+        "User-Agent": USER_AGENT,
+        "Referer": ANIMEPAHE_BASE_URL,
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cookie": "__ddg2_=; res=1080; aud=jpn;"
+      }
     });
-
+  
     return res.data.data.map(ep => ({
-        episode: ep.episode,
-        session: ep.session
+      episode: ep.episode,
+      session: ep.session
     }));
-}
+  }  
 
 // Get stream sources
 export async function getEpisodeSources(animeSession, session) {
