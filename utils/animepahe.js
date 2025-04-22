@@ -32,7 +32,8 @@ export async function getEpisodeList(animeSession, page = 1) {
   
     return res.data.data.map(ep => ({
       episode: ep.episode,
-      session: ep.session
+      session: ep.session,
+      snapshot: ep.snapshot
     }));
   }  
 
