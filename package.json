@@ -22,7 +22,7 @@
     "cheerio": "^1.0.0-rc.12",
     "chrome-aws-lambda": "^10.1.0",
     "express": "^4.18.2",
-    "puppeteer-core": "^24.7.1",
+    "puppeteer-core": "^10.1.0",
     "redis": "^4.7.0"
   }
 }
