@@ -1,8 +1,16 @@
-import puppeteer from 'puppeteer';
+import chromium from 'chrome-aws-lambda';
+import puppeteer from 'puppeteer-core';
 
 export async function getVideoSource(id, episode) {
   const url = `https://gojo.wtf/watch/${id}/?provider=strix&ep=${episode}`;
-  const browser = await puppeteer.launch({ headless: "new" });
+
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath || '/usr/bin/chromium-browser',
+    headless: chromium.headless,
+  });
+
   const page = await browser.newPage();
 
   try {
