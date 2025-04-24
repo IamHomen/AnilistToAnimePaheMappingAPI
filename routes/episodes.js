@@ -40,7 +40,7 @@ router.get("/:anilistId", async (req, res) => {
     }
 
     const match = results.find(a => a.title.toLowerCase() === title.toLowerCase()) || results[0];
-    const episodes = await getEpisodeList(match.session, page);
+    const { episodeList, pageInfo } = await getEpisodeList(match.session, page);
 
     const response = {
       anilistId,
@@ -48,8 +48,8 @@ router.get("/:anilistId", async (req, res) => {
       animepaheId: match.id,
       animepaheTitle: match.title,
       animepaheSession: match.session,
-      page,
-      episodes
+      pageInfo,
+      episodeList
     };
 
     await redisClient.setEx(cacheKey, 3600, JSON.stringify(response));
