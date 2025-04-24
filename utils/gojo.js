@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer-core';
+import puppeteer from 'puppeteer';
 
 export async function getVideoSource(id, episode) {
   const url = `https://gojo.wtf/watch/${id}/?provider=strix&ep=${episode}`;
@@ -9,7 +9,6 @@ export async function getVideoSource(id, episode) {
     browser = await puppeteer.launch({
       headless: true,
       ignoreHTTPSErrors: true,
-      channel: 'chrome',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
