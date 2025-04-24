@@ -1,4 +1,3 @@
-import chromium from 'chrome-aws-lambda';
 import puppeteer from 'puppeteer-core';
 
 export async function getVideoSource(id, episode) {
@@ -7,12 +6,10 @@ export async function getVideoSource(id, episode) {
   let browser = null;
 
   try {
-    const browser = await chromium.puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+    browser = await puppeteer.launch({
       headless: true,
-      ignoreHTTPSErrors: true
+      ignoreHTTPSErrors: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await browser.newPage();
