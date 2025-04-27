@@ -116,7 +116,26 @@ router.get("/sources/gojo/:id/:episode", async (req, res) => {
 
 puppeteer.use(StealthPlugin());
 
-const browser = await puppeteer.launch({ headless: "new" });
+export async function getPuppeteerBrowser() {
+  const browser = await puppeteer.launch({
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu'
+    ],
+    headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+  });
+
+  return browser;
+}
+
+const browser = await getPuppeteerBrowser();
 
 // 🔥 Function to fetch data using Puppeteer
 async function fetchWithPuppeteer(url) {
