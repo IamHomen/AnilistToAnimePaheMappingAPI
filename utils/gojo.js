@@ -1,25 +1,29 @@
-import puppeteer from 'puppeteer';
+import { Builder, By, until } from 'selenium-webdriver';
+import chrome from 'selenium-webdriver/chrome.js';
 
 export async function getVideoSource(id, episode) {
   const url = `https://gojo.wtf/watch/${id}/?provider=strix&ep=${episode}`;
 
-  let browser = null;
+  const options = new chrome.Options();
+  options.addArguments('--headless'); // run headless
+  options.addArguments('--no-sandbox');
+  options.addArguments('--disable-dev-shm-usage');
+
+  const driver = await new Builder()
+    .forBrowser('chrome')
+    .setChromeOptions(options)
+    .build();
 
   try {
-    browser = await puppeteer.launch({
-      headless: false,
-      chrome,
-      ignoreHTTPSErrors: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    await driver.get(url);
 
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
+    // Wait for the video element to be available
+    const video = await driver.wait(
+      until.elementLocated(By.css('video.art-video')),
+      60000
+    );
 
-    const videoSrc = await page.evaluate(() => {
-      const video = document.querySelector('video.art-video');
-      return video?.src || null;
-    });
+    const videoSrc = await video.getAttribute('src');
 
     if (!videoSrc) {
       throw new Error('Video source not found.');
@@ -27,11 +31,9 @@ export async function getVideoSource(id, episode) {
 
     return videoSrc;
   } catch (err) {
-    console.error('[Puppeteer Error]', err);
+    console.error('[Selenium Error]', err);
     throw err;
   } finally {
-    if (browser !== null) {
-      await browser.close();
-    }
+    await driver.quit();
   }
 }
