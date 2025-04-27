@@ -7,7 +7,7 @@ export async function getVideoSource(id, episode) {
 
   try {
     browser = await puppeteer.launch({
-      headless: true,
+      headless: false,
       ignoreHTTPSErrors: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
