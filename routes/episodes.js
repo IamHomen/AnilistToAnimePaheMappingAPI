@@ -1,10 +1,12 @@
 import express from 'express';
 import axios from "axios";
-import puppeteer from 'puppeteer';
+import chromium from "@sparticuz/chrome-aws-lambda";
+import puppeteer from "puppeteer";
 import { createClient } from 'redis';
 import { getAniListTitle } from '../utils/anilist.js';
 import { getVideoSource } from '../utils/gojo.js';
 import { searchAnimePahe, getEpisodeList, getEpisodeSources } from '../utils/animepahe.js';
+import os from 'os';
 
 // Constants
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
@@ -113,8 +115,15 @@ router.get("/sources/gojo/:id/:episode", async (req, res) => {
   }
 });
 
-// ✅ Launch Puppeteer once globally
-const browser = await puppeteer.launch({ headless: "true" });
+// Then in launch:
+const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+
+const browser = await puppeteer.launch({
+  executablePath: isProduction ? await chromium.executablePath : undefined,
+  headless: true,
+  args: chromium.args,
+  defaultViewport: chromium.defaultViewport,
+});
 
 // 🔥 Function to fetch data using Puppeteer
 async function fetchWithPuppeteer(url) {
