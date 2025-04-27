@@ -114,7 +114,7 @@ router.get("/sources/gojo/:id/:episode", async (req, res) => {
 });
 
 // ✅ Launch Puppeteer once globally
-const browser = await puppeteer.launch({ headless: "new" });
+const browser = await puppeteer.launch({ headless: "true" });
 
 // 🔥 Function to fetch data using Puppeteer
 async function fetchWithPuppeteer(url) {
