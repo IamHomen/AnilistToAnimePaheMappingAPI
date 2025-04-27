@@ -1,6 +1,6 @@
 import express from 'express';
 import axios from "axios";
-import { chromium } from 'playwright';
+import puppeteer from 'puppeteer';
 import { createClient } from 'redis';
 import { getAniListTitle } from '../utils/anilist.js';
 import { getVideoSource } from '../utils/gojo.js';
@@ -116,7 +116,7 @@ router.get("/sources/gojo/:id/:episode", async (req, res) => {
 // /list/:anilistId
 router.get('/list/:anilistId', async (req, res) => {
   const { anilistId } = req.params;
-  let browser, context, page;
+  let browser, page;
 
   try {
     // 1. Fetch title from AniList
@@ -140,25 +140,23 @@ router.get('/list/:anilistId', async (req, res) => {
     const title = titles.romaji || titles.english || titles.native;
     console.log(`[AniList] Title: ${title}`);
 
-    // 2. Launch Playwright to pass DDOS-Guard
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+    // 2. Launch Puppeteer to pass DDOS-Guard
+    browser = await puppeteer.launch({
+      headless: 'new', // or just true if using old versions
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
-    context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-      viewport: { width: 1280, height: 800 },
-    });
+    page = await browser.newPage();
 
-    page = await context.newPage();
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36");
+    await page.setViewport({ width: 1280, height: 800 });
 
     console.log('[AnimePahe] Visiting homepage to pass DDOS-Guard...');
     await page.goto('https://animepahe.ru/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(4000);
+    await new Promise(resolve => setTimeout(resolve, 4000));
 
     // 👇 GET COOKIES dynamically
-    const cookies = await context.cookies();
+    const cookies = await page.cookies();
     const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
     // 4. Now fetch search results directly via API
@@ -190,8 +188,8 @@ router.get('/list/:anilistId', async (req, res) => {
       {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-          "Cookie": cookieString, // << use same dynamic cookies
-          "Referer": "https://animepahe.ru/", // << correct referer
+          "Cookie": cookieString, 
+          "Referer": "https://animepahe.ru/", 
           "Accept-Language": "en-US,en;q=0.9",
         }
       }
