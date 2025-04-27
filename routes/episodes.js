@@ -1,12 +1,10 @@
 import express from 'express';
 import axios from "axios";
-import chromium from "@sparticuz/chrome-aws-lambda";
 import puppeteer from "puppeteer";
 import { createClient } from 'redis';
 import { getAniListTitle } from '../utils/anilist.js';
 import { getVideoSource } from '../utils/gojo.js';
 import { searchAnimePahe, getEpisodeList, getEpisodeSources } from '../utils/animepahe.js';
-import os from 'os';
 
 // Constants
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
@@ -115,46 +113,47 @@ router.get("/sources/gojo/:id/:episode", async (req, res) => {
   }
 });
 
-// Then in launch:
-const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
-
-const browser = await puppeteer.launch({
-  executablePath: isProduction ? await chromium.executablePath : undefined,
-  headless: true,
-  args: chromium.args,
-  defaultViewport: chromium.defaultViewport,
-});
-
-// 🔥 Function to fetch data using Puppeteer
 async function fetchWithPuppeteer(url) {
-  const page = await browser.newPage();
-  await page.setUserAgent(USER_AGENT);
-  await page.setExtraHTTPHeaders({
-    "Accept-Language": "en-US,en;q=0.9",
-  });
-
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-
-  let bodyText = await page.evaluate(() => document.body.innerText);
-
-  if (bodyText.includes("Checking your browser before accessing")) {
-    console.log("DDoS-Guard detected, retrying after short wait...");
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    bodyText = await page.evaluate(() => document.body.innerText);
-  }
-
-  let json;
+  let browser;
   try {
-    json = JSON.parse(bodyText);
-  } catch (error) {
-    console.error("Failed to parse JSON even after retry.");
-    await page.close();
-    throw new Error("AnimePahe is blocking or invalid response.");
-  }
+    browser = await puppeteer.launch({
+      headless: true,
+      ignoreHTTPSErrors: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
-  await page.close();
-  return json;
+    const page = await browser.newPage();
+
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+    let bodyText = await page.evaluate(() => document.body.innerText);
+
+    if (bodyText.includes("Checking your browser before accessing")) {
+      console.log("DDoS-Guard detected, retrying after short wait...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      bodyText = await page.evaluate(() => document.body.innerText);
+    }
+
+    let json;
+    try {
+      json = JSON.parse(bodyText);
+    } catch (error) {
+      console.error("Failed to parse JSON even after retry.");
+      throw new Error("AnimePahe is blocking or returning invalid response.");
+    }
+
+    await page.close();
+    return json;
+
+  } catch (error) {
+    console.error("Puppeteer error:", error);
+    throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
 }
 
 // 🔥 Optimized /list/:anilistId route
