@@ -165,9 +165,9 @@ router.get('/list/:anilistId', async (req, res) => {
 
     const searchResponse = await axios.get(searchUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+        "User-Agent": USER_AGENT,
         "Cookie": cookieString,
-        "Referer": "https://animepahe.ru/",
+        "Referer": ANIMEPAHE_BASE_URL,
         "Accept-Language": "en-US,en;q=0.9",
       }
     });
@@ -187,9 +187,9 @@ router.get('/list/:anilistId', async (req, res) => {
       `https://animepahe.ru/api?m=release&id=${session}&sort=episode_asc&page=1`,
       {
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+          "User-Agent": USER_AGENT,
           "Cookie": cookieString, 
-          "Referer": "https://animepahe.ru/", 
+          "Referer": ANIMEPAHE_BASE_URL, 
           "Accept-Language": "en-US,en;q=0.9",
         }
       }
