@@ -119,6 +119,7 @@ async function fetchWithPuppeteer(url) {
     browser = await puppeteer.launch({
       headless: false,
       ignoreHTTPSErrors: true,
+      chrome,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
