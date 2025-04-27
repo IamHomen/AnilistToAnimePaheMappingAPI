@@ -113,13 +113,55 @@ router.get("/sources/gojo/:id/:episode", async (req, res) => {
   }
 });
 
-// /list/:anilistId
+// ✅ Launch Puppeteer once globally
+const browser = await puppeteer.launch({ headless: "new" });
+
+// 🔥 Function to fetch data using Puppeteer
+async function fetchWithPuppeteer(url) {
+  const page = await browser.newPage();
+  await page.setUserAgent(USER_AGENT);
+  await page.setExtraHTTPHeaders({
+    "Accept-Language": "en-US,en;q=0.9",
+  });
+
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+  let bodyText = await page.evaluate(() => document.body.innerText);
+
+  if (bodyText.includes("Checking your browser before accessing")) {
+    console.log("DDoS-Guard detected, retrying after short wait...");
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    bodyText = await page.evaluate(() => document.body.innerText);
+  }
+
+  let json;
+  try {
+    json = JSON.parse(bodyText);
+  } catch (error) {
+    console.error("Failed to parse JSON even after retry.");
+    await page.close();
+    throw new Error("AnimePahe is blocking or invalid response.");
+  }
+
+  await page.close();
+  return json;
+}
+
+// 🔥 Optimized /list/:anilistId route
 router.get('/list/:anilistId', async (req, res) => {
   const { anilistId } = req.params;
-  let browser, page;
+  const cacheKey = `animepahe:list:${anilistId}`;
 
   try {
-    // 1. Fetch title from AniList
+    // Check Redis first
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      console.log("Cache hit");
+      return res.json(JSON.parse(cached));
+    }
+
+    // 1. Get title from AniList
     const graphqlQuery = {
       query: `
         query ($id: Int) {
@@ -132,90 +174,44 @@ router.get('/list/:anilistId', async (req, res) => {
           }
         }
       `,
-      variables: { id: parseInt(anilistId) },
+      variables: { id: parseInt(anilistId) }
     };
 
     const anilistResponse = await axios.post('https://graphql.anilist.co', graphqlQuery);
     const titles = anilistResponse.data.data.Media.title;
     const title = titles.romaji || titles.english || titles.native;
-    console.log(`[AniList] Title: ${title}`);
 
-    // 2. Launch Puppeteer to pass DDOS-Guard
-    browser = await puppeteer.launch({
-      headless: 'new', // or just true if using old versions
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    // 2. Search Animepahe using Puppeteer
+    const searchUrl = `https://animepahe.com/api?m=search&q=${encodeURIComponent(title)}`;
+    const searchResponse = await fetchWithPuppeteer(searchUrl);
 
-    page = await browser.newPage();
-
-    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36");
-    await page.setViewport({ width: 1280, height: 800 });
-
-    console.log('[AnimePahe] Visiting homepage to pass DDOS-Guard...');
-    await page.goto('https://animepahe.ru/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await new Promise(resolve => setTimeout(resolve, 4000));
-
-    // 👇 GET COOKIES dynamically
-    const cookies = await page.cookies();
-    const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-
-    // 4. Now fetch search results directly via API
-    const searchUrl = `https://animepahe.ru/api?m=search&q=${encodeURIComponent(title)}`;
-    console.log(`[AnimePahe] Searching via API: ${searchUrl}`);
-
-    const searchResponse = await axios.get(searchUrl, {
-      headers: {
-        "User-Agent": USER_AGENT,
-        "Cookie": cookieString,
-        "Referer": ANIMEPAHE_BASE_URL,
-        "Accept-Language": "en-US,en;q=0.9",
-      }
-    });
-
-    const searchData = searchResponse.data.data;
-    if (!searchData || searchData.length === 0) {
-      throw new Error('No results found for this anime.');
+    if (!searchResponse.data.length) {
+      return res.status(404).json({ error: "Anime not found on AnimePahe" });
     }
 
-    const firstAnime = searchData[0];
-    const { session, title: animepaheTitle } = firstAnime;
+    const bestMatch = searchResponse.data[0];
+    const animepaheId = bestMatch.session;
 
-    console.log(`[AnimePahe] Found: ${animepaheTitle}, Session ID: ${session}`);
+    // 3. Get episodes list using Puppeteer
+    const releaseUrl = `https://animepahe.com/api?m=release&id=${animepaheId}`;
+    const episodesResponse = await fetchWithPuppeteer(releaseUrl);
+    const episodes = episodesResponse.data;
 
-    // 5. Fetch episode list
-    const episodesResponse = await axios.get(
-      `https://animepahe.ru/api?m=release&id=${session}&sort=episode_asc&page=1`,
-      {
-        headers: {
-          "User-Agent": USER_AGENT,
-          "Cookie": cookieString, 
-          "Referer": ANIMEPAHE_BASE_URL, 
-          "Accept-Language": "en-US,en;q=0.9",
-        }
-      }
-    );
-
-    const episodes = episodesResponse.data.data;
-    const current_page = episodesResponse.data.current_page;
-    const last_page = episodesResponse.data.last_page;
-
-    // 6. Return JSON
-    res.json({
+    const response = {
       animeTitle: title,
-      animepaheTitle,
-      animepaheSessionId: session,
-      current_page,
-      last_page,
-      episodes,
-    });
+      animepaheId,
+      anilistId,
+      episodes
+    };
+
+    // Save to Redis (1 hour)
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(response));
+
+    res.json(response);
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
+    res.status(500).json({ error: "Failed to fetch episode list." });
   }
 });
 
