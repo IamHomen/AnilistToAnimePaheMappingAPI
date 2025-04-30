@@ -152,10 +152,11 @@ async function fetchWithCloudscraper(url) {
   }
 }
 
-// 🔥 Optimized /list/:anilistId route without puppeteer
+// 🔥 Optimized /list/:anilistId
 router.get('/list/:anilistId', async (req, res) => {
   const { anilistId } = req.params;
-  const cacheKey = `animepahe:list:${anilistId}`;
+  const page = parseInt(req.query.page) || 1; // default to page 1
+  const cacheKey = `animepahe:list:${anilistId}:page:${page}`;
 
   try {
     // Check Redis first
@@ -197,7 +198,7 @@ router.get('/list/:anilistId', async (req, res) => {
     const animepaheId = bestMatch.session;
 
     // 3. Get episodes list
-    const releaseUrl = `https://animepahe.ru/api?m=release&id=${animepaheId}`;
+    const releaseUrl = `https://animepahe.ru/api?m=release&id=${animepaheId}&sort=episode_asc&page=${page}`;
     const episodesResponse = await fetchWithCloudscraper(releaseUrl);
     const episodes = episodesResponse.data;
 
@@ -205,6 +206,14 @@ router.get('/list/:anilistId', async (req, res) => {
       animeTitle: title,
       animepaheId,
       anilistId,
+      pagination: {
+        total: episodesResponse.total,
+        per_page: episodesResponse.per_page,
+        current_page: episodesResponse.current_page,
+        last_page: episodesResponse.last_page,
+        from: episodesResponse.from,
+        to: episodesResponse.to,
+      },
       episodes
     };
 
